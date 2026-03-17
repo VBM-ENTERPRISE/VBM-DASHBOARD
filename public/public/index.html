@@ -1,0 +1,470 @@
+import { useState } from "react";
+
+const initialData = {
+  team: [
+    { id: 1, name: "Cynthia Okwu", role: "Operations & Content", location: "Lagos, Nigeria", status: "Pending Start", checkIn: "Daily", color: "#E8B86D" },
+    { id: 2, name: "Deborah Onimole", role: "Sales & Client Relations", location: "Lagos, Nigeria", status: "Pending Start", checkIn: "Daily", color: "#7EB8A4" },
+    { id: 3, name: "Angel Ariyibi", role: "AI & Strategy Consultant", location: "Ireland", status: "Pending Start", checkIn: "Weekly", color: "#A78BCA" },
+  ],
+  tasks: [
+    { id: 1, assignee: "Cynthia Okwu", task: "Build California retailer database (50 bike shops)", priority: "High", status: "To Do", market: "USA" },
+    { id: 2, assignee: "Cynthia Okwu", task: "Build Ireland retailer database (50 bike shops)", priority: "High", status: "To Do", market: "Ireland" },
+    { id: 3, assignee: "Cynthia Okwu", task: "Set up VBM social media content calendar", priority: "Medium", status: "To Do", market: "Both" },
+    { id: 4, assignee: "Deborah Onimole", task: "Draft cold email outreach templates for retailers", priority: "High", status: "To Do", market: "Both" },
+    { id: 5, assignee: "Deborah Onimole", task: "Begin outreach to 20 California retailers", priority: "High", status: "To Do", market: "USA" },
+    { id: 6, assignee: "Deborah Onimole", task: "Build WhatsApp follow-up sequences", priority: "Medium", status: "To Do", market: "Both" },
+    { id: 7, assignee: "Angel Ariyibi", task: "Audit VBM operations — identify AI automation opportunities", priority: "High", status: "To Do", market: "Both" },
+    { id: 8, assignee: "Angel Ariyibi", task: "Set up AI-powered outreach assistant", priority: "Medium", status: "To Do", market: "Both" },
+    { id: 9, assignee: "Angel Ariyibi", task: "Ireland retailer strategy call with Aaron", priority: "High", status: "To Do", market: "Ireland" },
+  ],
+  pipeline: [
+    { id: 1, retailer: "Cycle Superstore", location: "Dublin, Ireland", stage: "Not Contacted" },
+    { id: 2, retailer: "360 Cycles", location: "Dublin, Ireland", stage: "Not Contacted" },
+    { id: 3, retailer: "Joe Daly Cycles", location: "Dundrum, Ireland", stage: "Not Contacted" },
+    { id: 4, retailer: "ThinkBike", location: "Dublin, Ireland", stage: "Not Contacted" },
+    { id: 5, retailer: "California Retailer 1", location: "Los Angeles, CA", stage: "Not Contacted" },
+    { id: 6, retailer: "California Retailer 2", location: "San Diego, CA", stage: "Not Contacted" },
+  ],
+  checkins: [],
+  salesTeam: [
+    { id: 1, name: "Sales Rep 1", market: "USA", revenue: 0, target: 50000, deals: 0, rank: 1 },
+    { id: 2, name: "Sales Rep 2", market: "Ireland", revenue: 0, target: 40000, deals: 0, rank: 2 },
+    { id: 3, name: "Sales Rep 3", market: "USA", revenue: 0, target: 50000, deals: 0, rank: 3 },
+    { id: 4, name: "Sales Rep 4", market: "Ireland", revenue: 0, target: 40000, deals: 0, rank: 4 },
+    { id: 5, name: "Sales Rep 5", market: "USA", revenue: 0, target: 50000, deals: 0, rank: 5 },
+  ],
+};
+
+const priorityColor = { High: "#E8534A", Medium: "#E8B86D", Low: "#7EB8A4" };
+const stageColor = {
+  "Not Contacted": "#555",
+  "Contacted": "#E8B86D",
+  "Meeting Booked": "#A78BCA",
+  "Demo Done": "#5BA4D4",
+  "Order Placed": "#7EB8A4",
+  "Recurring": "#E8534A",
+};
+const taskStatusColor = { "To Do": "#555", "In Progress": "#E8B86D", "Done": "#7EB8A4" };
+
+export default function App() {
+  const [data, setData] = useState(initialData);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [newCheckin, setNewCheckin] = useState({ member: "", note: "" });
+  const [newTask, setNewTask] = useState({ assignee: "", task: "", priority: "Medium", status: "To Do", market: "Both" });
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [showAddCheckin, setShowAddCheckin] = useState(false);
+  const [editingSale, setEditingSale] = useState(null);
+  const [showAddRep, setShowAddRep] = useState(false);
+  const [newRep, setNewRep] = useState({ name: "", market: "USA", revenue: 0, target: 50000, deals: 0 });
+
+  const tabs = ["overview", "team", "tasks", "pipeline", "checkins", "sales team"];
+
+  const tasksByAssignee = (name) => data.tasks.filter(t => t.assignee === name);
+  const doneCount = data.tasks.filter(t => t.status === "Done").length;
+  const inProgressCount = data.tasks.filter(t => t.status === "In Progress").length;
+  const pipelineActive = data.pipeline.filter(p => p.stage !== "Not Contacted").length;
+  const totalRevenue = data.salesTeam.reduce((s, r) => s + r.revenue, 0);
+  const totalTarget = data.salesTeam.reduce((s, r) => s + r.target, 0);
+
+  const updateTaskStatus = (id, status) => {
+    setData(d => ({ ...d, tasks: d.tasks.map(t => t.id === id ? { ...t, status } : t) }));
+  };
+
+  const updatePipelineStage = (id, stage) => {
+    setData(d => ({ ...d, pipeline: d.pipeline.map(p => p.id === id ? { ...p, stage } : p) }));
+  };
+
+  const updateSalesRep = (id, field, value) => {
+    setData(d => {
+      const updated = d.salesTeam.map(r => r.id === id ? { ...r, [field]: field === "name" || field === "market" ? value : Number(value) } : r);
+      const sorted = [...updated].sort((a, b) => b.revenue - a.revenue).map((r, i) => ({ ...r, rank: i + 1 }));
+      return { ...d, salesTeam: sorted };
+    });
+    setEditingSale(null);
+  };
+
+  const addRep = () => {
+    if (!newRep.name) return;
+    const rep = { id: Date.now(), ...newRep, revenue: Number(newRep.revenue), target: Number(newRep.target), deals: Number(newRep.deals) };
+    setData(d => {
+      const updated = [...d.salesTeam, rep];
+      const sorted = [...updated].sort((a, b) => b.revenue - a.revenue).map((r, i) => ({ ...r, rank: i + 1 }));
+      return { ...d, salesTeam: sorted };
+    });
+    setNewRep({ name: "", market: "USA", revenue: 0, target: 50000, deals: 0 });
+    setShowAddRep(false);
+  };
+
+  const addCheckin = () => {
+    if (!newCheckin.member || !newCheckin.note) return;
+    const entry = { id: Date.now(), ...newCheckin, date: new Date().toLocaleDateString("en-GB") };
+    setData(d => ({ ...d, checkins: [entry, ...d.checkins] }));
+    setNewCheckin({ member: "", note: "" });
+    setShowAddCheckin(false);
+  };
+
+  const addTask = () => {
+    if (!newTask.assignee || !newTask.task) return;
+    setData(d => ({ ...d, tasks: [...d.tasks, { id: Date.now(), ...newTask }] }));
+    setNewTask({ assignee: "", task: "", priority: "Medium", status: "To Do", market: "Both" });
+    setShowAddTask(false);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0F0F0F", color: "#F0EDE8", fontFamily: "'Georgia', serif", padding: "0" }}>
+      <div style={{ background: "#161616", borderBottom: "1px solid #2A2A2A", padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: "11px", letterSpacing: "4px", color: "#E8B86D", textTransform: "uppercase", marginBottom: "4px" }}>VBM Enterprise</div>
+          <div style={{ fontSize: "22px", fontWeight: "bold", letterSpacing: "1px" }}>Operations Hub</div>
+        </div>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#7EB8A4" }} />
+          <span style={{ fontSize: "11px", color: "#888", letterSpacing: "2px", textTransform: "uppercase" }}>Live</span>
+        </div>
+      </div>
+
+      <div style={{ background: "#161616", borderBottom: "1px solid #2A2A2A", padding: "0 32px", display: "flex", gap: "0", overflowX: "auto" }}>
+        {tabs.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            background: "none", border: "none", color: activeTab === tab ? "#E8B86D" : "#666",
+            borderBottom: activeTab === tab ? "2px solid #E8B86D" : "2px solid transparent",
+            padding: "14px 20px", cursor: "pointer", fontSize: "12px", letterSpacing: "2px",
+            textTransform: "uppercase", fontFamily: "Georgia, serif", transition: "all 0.2s", whiteSpace: "nowrap"
+          }}>{tab}</button>
+        ))}
+      </div>
+
+      <div style={{ padding: "32px", maxWidth: "1100px", margin: "0 auto" }}>
+
+        {activeTab === "overview" && (
+          <div>
+            <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", marginBottom: "24px" }}>Dashboard</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }}>
+              {[
+                { label: "Team Members", value: "3", sub: "Starting next week", color: "#E8B86D" },
+                { label: "Tasks Complete", value: `${doneCount}/${data.tasks.length}`, sub: `${inProgressCount} in progress`, color: "#7EB8A4" },
+                { label: "Retailers in Pipeline", value: data.pipeline.length, sub: `${pipelineActive} contacted`, color: "#A78BCA" },
+                { label: "Container ETA", value: "April", sub: "Los Angeles, CA", color: "#5BA4D4" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "20px" }}>
+                  <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#666", textTransform: "uppercase", marginBottom: "8px" }}>{s.label}</div>
+                  <div style={{ fontSize: "28px", fontWeight: "bold", color: s.color, marginBottom: "4px" }}>{s.value}</div>
+                  <div style={{ fontSize: "11px", color: "#555" }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "32px" }}>
+              {[
+                { market: "🇺🇸 USA — California", status: "Container arriving April", tasks: data.tasks.filter(t => t.market === "USA" || t.market === "Both").length, color: "#5BA4D4" },
+                { market: "🇮🇪 Ireland", status: "Retailer outreach phase", tasks: data.tasks.filter(t => t.market === "Ireland" || t.market === "Both").length, color: "#7EB8A4" },
+              ].map((m, i) => (
+                <div key={i} style={{ background: "#1A1A1A", border: `1px solid ${m.color}33`, borderRadius: "8px", padding: "20px" }}>
+                  <div style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px" }}>{m.market}</div>
+                  <div style={{ fontSize: "12px", color: m.color, marginBottom: "8px" }}>{m.status}</div>
+                  <div style={{ fontSize: "11px", color: "#666" }}>{m.tasks} active tasks</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", marginBottom: "16px" }}>Team at a glance</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {data.team.map(member => (
+                <div key={member.id} style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: member.color + "33", border: `2px solid ${member.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "bold", color: member.color }}>
+                      {member.name.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: "bold" }}>{member.name}</div>
+                      <div style={{ fontSize: "11px", color: "#666" }}>{member.role} · {member.location}</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "11px", color: member.color, marginBottom: "4px" }}>{tasksByAssignee(member.name).length} tasks assigned</div>
+                    <div style={{ fontSize: "10px", color: "#555" }}>Check-in: {member.checkIn}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "team" && (
+          <div>
+            <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", marginBottom: "24px" }}>Your Team</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {data.team.map(member => (
+                <div key={member.id} style={{ background: "#1A1A1A", border: `1px solid ${member.color}44`, borderRadius: "10px", padding: "24px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
+                    <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: member.color + "22", border: `2px solid ${member.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: "bold", color: member.color }}>
+                      {member.name.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "18px", fontWeight: "bold" }}>{member.name}</div>
+                      <div style={{ fontSize: "12px", color: member.color }}>{member.role}</div>
+                      <div style={{ fontSize: "11px", color: "#666" }}>{member.location} · Check-in: {member.checkIn}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#666", textTransform: "uppercase", marginBottom: "10px" }}>Assigned Tasks</div>
+                  {tasksByAssignee(member.name).map(task => (
+                    <div key={task.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #2A2A2A" }}>
+                      <div style={{ fontSize: "13px", flex: 1 }}>{task.task}</div>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <span style={{ fontSize: "10px", color: priorityColor[task.priority], border: `1px solid ${priorityColor[task.priority]}44`, borderRadius: "4px", padding: "2px 8px" }}>{task.priority}</span>
+                        <select value={task.status} onChange={e => updateTaskStatus(task.id, e.target.value)} style={{ background: "#2A2A2A", color: taskStatusColor[task.status], border: "1px solid #333", borderRadius: "4px", padding: "3px 8px", fontSize: "11px", fontFamily: "Georgia, serif", cursor: "pointer" }}>
+                          <option>To Do</option>
+                          <option>In Progress</option>
+                          <option>Done</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "tasks" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase" }}>All Tasks</div>
+              <button onClick={() => setShowAddTask(!showAddTask)} style={{ background: "#E8B86D", color: "#0F0F0F", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "11px", letterSpacing: "2px", textTransform: "uppercase", cursor: "pointer", fontFamily: "Georgia, serif" }}>+ Add Task</button>
+            </div>
+            {showAddTask && (
+              <div style={{ background: "#1A1A1A", border: "1px solid #E8B86D44", borderRadius: "8px", padding: "20px", marginBottom: "20px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <select value={newTask.assignee} onChange={e => setNewTask({ ...newTask, assignee: e.target.value })} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }}>
+                    <option value="">Assignee</option>
+                    {data.team.map(m => <option key={m.id}>{m.name}</option>)}
+                  </select>
+                  <input value={newTask.task} onChange={e => setNewTask({ ...newTask, task: e.target.value })} placeholder="Task description" style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }} />
+                  <select value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value })} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }}>
+                    <option>High</option><option>Medium</option><option>Low</option>
+                  </select>
+                  <select value={newTask.market} onChange={e => setNewTask({ ...newTask, market: e.target.value })} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }}>
+                    <option>Both</option><option>USA</option><option>Ireland</option>
+                  </select>
+                  <button onClick={addTask} style={{ background: "#7EB8A4", color: "#0F0F0F", border: "none", borderRadius: "4px", padding: "8px", cursor: "pointer", fontFamily: "Georgia, serif", fontSize: "12px" }}>Add</button>
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {data.tasks.map(task => {
+                const member = data.team.find(m => m.name === task.assignee);
+                return (
+                  <div key={task.id} style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "14px 20px", display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: member ? member.color + "22" : "#333", border: `1px solid ${member ? member.color : "#444"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", color: member ? member.color : "#888", flexShrink: 0 }}>
+                      {task.assignee.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div style={{ flex: 1, fontSize: "13px" }}>{task.task}</div>
+                    <span style={{ fontSize: "10px", color: "#888", background: "#2A2A2A", borderRadius: "4px", padding: "2px 8px" }}>{task.market}</span>
+                    <span style={{ fontSize: "10px", color: priorityColor[task.priority], border: `1px solid ${priorityColor[task.priority]}44`, borderRadius: "4px", padding: "2px 8px", flexShrink: 0 }}>{task.priority}</span>
+                    <select value={task.status} onChange={e => updateTaskStatus(task.id, e.target.value)} style={{ background: "#2A2A2A", color: taskStatusColor[task.status], border: "1px solid #333", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontFamily: "Georgia, serif", cursor: "pointer", flexShrink: 0 }}>
+                      <option>To Do</option>
+                      <option>In Progress</option>
+                      <option>Done</option>
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "pipeline" && (
+          <div>
+            <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", marginBottom: "24px" }}>Retailer Sales Pipeline</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {data.pipeline.map(retailer => (
+                <div key={retailer.id} style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "16px 20px", display: "flex", alignItems: "center", gap: "16px" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "14px", fontWeight: "bold" }}>{retailer.retailer}</div>
+                    <div style={{ fontSize: "11px", color: "#666" }}>{retailer.location}</div>
+                  </div>
+                  <select value={retailer.stage} onChange={e => updatePipelineStage(retailer.id, e.target.value)} style={{ background: "#2A2A2A", color: stageColor[retailer.stage], border: `1px solid ${stageColor[retailer.stage]}44`, borderRadius: "4px", padding: "6px 10px", fontSize: "11px", fontFamily: "Georgia, serif", cursor: "pointer" }}>
+                    <option>Not Contacted</option>
+                    <option>Contacted</option>
+                    <option>Meeting Booked</option>
+                    <option>Demo Done</option>
+                    <option>Order Placed</option>
+                    <option>Recurring</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "24px", background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "20px" }}>
+              <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", marginBottom: "16px" }}>Pipeline Summary</div>
+              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                {Object.entries(stageColor).map(([stage, color]) => {
+                  const count = data.pipeline.filter(p => p.stage === stage).length;
+                  return (
+                    <div key={stage} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: color }} />
+                      <span style={{ fontSize: "12px", color: "#888" }}>{stage}: </span>
+                      <span style={{ fontSize: "12px", color, fontWeight: "bold" }}>{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "checkins" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase" }}>Daily Check-ins</div>
+              <button onClick={() => setShowAddCheckin(!showAddCheckin)} style={{ background: "#E8B86D", color: "#0F0F0F", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "11px", letterSpacing: "2px", textTransform: "uppercase", cursor: "pointer", fontFamily: "Georgia, serif" }}>+ Log Check-in</button>
+            </div>
+            {showAddCheckin && (
+              <div style={{ background: "#1A1A1A", border: "1px solid #E8B86D44", borderRadius: "8px", padding: "20px", marginBottom: "20px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 3fr auto", gap: "12px" }}>
+                  <select value={newCheckin.member} onChange={e => setNewCheckin({ ...newCheckin, member: e.target.value })} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }}>
+                    <option value="">Select member</option>
+                    {data.team.map(m => <option key={m.id}>{m.name}</option>)}
+                  </select>
+                  <input value={newCheckin.note} onChange={e => setNewCheckin({ ...newCheckin, note: e.target.value })} placeholder="What did they complete today?" style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }} />
+                  <button onClick={addCheckin} style={{ background: "#7EB8A4", color: "#0F0F0F", border: "none", borderRadius: "4px", padding: "8px 16px", cursor: "pointer", fontFamily: "Georgia, serif", fontSize: "12px" }}>Log</button>
+                </div>
+              </div>
+            )}
+            {data.checkins.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px", color: "#444", fontSize: "14px" }}>No check-ins logged yet. Start when your team begins next week.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {data.checkins.map(c => {
+                  const member = data.team.find(m => m.name === c.member);
+                  return (
+                    <div key={c.id} style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "16px 20px", display: "flex", gap: "16px", alignItems: "flex-start" }}>
+                      <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: member ? member.color + "22" : "#333", border: `1px solid ${member ? member.color : "#444"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: member ? member.color : "#888", flexShrink: 0 }}>
+                        {c.member.split(" ").map(n => n[0]).join("")}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "12px", color: member ? member.color : "#888", marginBottom: "4px" }}>{c.member} · {c.date}</div>
+                        <div style={{ fontSize: "13px" }}>{c.note}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "sales team" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <div>
+                <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", marginBottom: "4px" }}>Sales Team</div>
+                <div style={{ fontSize: "12px", color: "#555" }}>Live leaderboard · ranked by turnover</div>
+              </div>
+              <button onClick={() => setShowAddRep(!showAddRep)} style={{ background: "#E8B86D", color: "#0F0F0F", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "11px", letterSpacing: "2px", textTransform: "uppercase", cursor: "pointer", fontFamily: "Georgia, serif" }}>+ Add Rep</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "32px" }}>
+              {[
+                { label: "Total Turnover", value: `$${totalRevenue.toLocaleString()}`, sub: `Target: $${totalTarget.toLocaleString()}`, color: "#E8B86D" },
+                { label: "Team % to Target", value: totalTarget > 0 ? `${Math.round((totalRevenue / totalTarget) * 100)}%` : "0%", sub: "Overall attainment", color: "#7EB8A4" },
+                { label: "Total Deals Closed", value: data.salesTeam.reduce((s, r) => s + r.deals, 0), sub: "Across all reps", color: "#A78BCA" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", padding: "20px" }}>
+                  <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#666", textTransform: "uppercase", marginBottom: "8px" }}>{s.label}</div>
+                  <div style={{ fontSize: "28px", fontWeight: "bold", color: s.color, marginBottom: "4px" }}>{s.value}</div>
+                  <div style={{ fontSize: "11px", color: "#555" }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+            {showAddRep && (
+              <div style={{ background: "#1A1A1A", border: "1px solid #E8B86D44", borderRadius: "8px", padding: "20px", marginBottom: "20px" }}>
+                <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#E8B86D", textTransform: "uppercase", marginBottom: "12px" }}>New Sales Rep</div>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto", gap: "10px", alignItems: "center" }}>
+                  <input value={newRep.name} onChange={e => setNewRep({ ...newRep, name: e.target.value })} placeholder="Full name" style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }} />
+                  <select value={newRep.market} onChange={e => setNewRep({ ...newRep, market: e.target.value })} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }}>
+                    <option>USA</option><option>Ireland</option><option>Both</option>
+                  </select>
+                  <input type="number" value={newRep.revenue} onChange={e => setNewRep({ ...newRep, revenue: e.target.value })} placeholder="Revenue $" style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }} />
+                  <input type="number" value={newRep.target} onChange={e => setNewRep({ ...newRep, target: e.target.value })} placeholder="Target $" style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }} />
+                  <input type="number" value={newRep.deals} onChange={e => setNewRep({ ...newRep, deals: e.target.value })} placeholder="Deals" style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "8px", fontSize: "12px", fontFamily: "Georgia, serif" }} />
+                  <button onClick={addRep} style={{ background: "#7EB8A4", color: "#0F0F0F", border: "none", borderRadius: "4px", padding: "8px 14px", cursor: "pointer", fontFamily: "Georgia, serif", fontSize: "12px" }}>Add</button>
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 80px 120px 120px 100px 100px", gap: "12px", padding: "0 20px", marginBottom: "4px" }}>
+                {["#", "Name", "Market", "Turnover", "Target", "% Hit", "Deals"].map((h, i) => (
+                  <div key={i} style={{ fontSize: "10px", letterSpacing: "2px", color: "#555", textTransform: "uppercase" }}>{h}</div>
+                ))}
+              </div>
+              {data.salesTeam.map((rep, idx) => {
+                const pct = rep.target > 0 ? Math.round((rep.revenue / rep.target) * 100) : 0;
+                const rankColors = ["#E8B86D", "#C0C0C0", "#CD7F32"];
+                const rankColor = idx < 3 ? rankColors[idx] : "#555";
+                const pctColor = pct >= 100 ? "#7EB8A4" : pct >= 60 ? "#E8B86D" : "#E8534A";
+                const isEditing = editingSale === rep.id;
+                return (
+                  <div key={rep.id} style={{ background: "#1A1A1A", border: `1px solid ${idx === 0 ? "#E8B86D44" : "#2A2A2A"}`, borderRadius: "8px", padding: "16px 20px", position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${Math.min(pct, 100)}%`, background: pctColor + "08", transition: "width 0.5s ease", pointerEvents: "none" }} />
+                    <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 80px 120px 120px 100px 100px", gap: "12px", alignItems: "center", position: "relative" }}>
+                      <div style={{ fontSize: "16px", fontWeight: "bold", color: rankColor }}>
+                        {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${rep.rank}`}
+                      </div>
+                      <div>
+                        {isEditing ? (
+                          <input defaultValue={rep.name} onBlur={e => updateSalesRep(rep.id, "name", e.target.value)} autoFocus style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #E8B86D", borderRadius: "4px", padding: "4px 8px", fontSize: "13px", fontFamily: "Georgia, serif", width: "100%" }} />
+                        ) : (
+                          <div style={{ fontSize: "14px", fontWeight: "bold" }}>{rep.name}</div>
+                        )}
+                      </div>
+                      <div>
+                        {isEditing ? (
+                          <select defaultValue={rep.market} onBlur={e => updateSalesRep(rep.id, "market", e.target.value)} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "4px", fontSize: "11px", fontFamily: "Georgia, serif" }}>
+                            <option>USA</option><option>Ireland</option><option>Both</option>
+                          </select>
+                        ) : (
+                          <span style={{ fontSize: "10px", color: rep.market === "USA" ? "#5BA4D4" : rep.market === "Ireland" ? "#7EB8A4" : "#A78BCA", background: "#2A2A2A", borderRadius: "4px", padding: "3px 8px" }}>{rep.market === "USA" ? "🇺🇸" : rep.market === "Ireland" ? "🇮🇪" : "🌍"}</span>
+                        )}
+                      </div>
+                      <div>
+                        {isEditing ? (
+                          <input type="number" defaultValue={rep.revenue} onBlur={e => updateSalesRep(rep.id, "revenue", e.target.value)} style={{ background: "#2A2A2A", color: "#E8B86D", border: "1px solid #E8B86D", borderRadius: "4px", padding: "4px 8px", fontSize: "13px", fontFamily: "Georgia, serif", width: "90px" }} />
+                        ) : (
+                          <div style={{ fontSize: "14px", fontWeight: "bold", color: "#E8B86D" }}>${rep.revenue.toLocaleString()}</div>
+                        )}
+                      </div>
+                      <div>
+                        {isEditing ? (
+                          <input type="number" defaultValue={rep.target} onBlur={e => updateSalesRep(rep.id, "target", e.target.value)} style={{ background: "#2A2A2A", color: "#F0EDE8", border: "1px solid #333", borderRadius: "4px", padding: "4px 8px", fontSize: "13px", fontFamily: "Georgia, serif", width: "90px" }} />
+                        ) : (
+                          <div style={{ fontSize: "13px", color: "#666" }}>${rep.target.toLocaleString()}</div>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "16px", fontWeight: "bold", color: pctColor }}>{pct}%</div>
+                        <div style={{ height: "3px", background: "#2A2A2A", borderRadius: "2px", marginTop: "4px" }}>
+                          <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: pctColor, borderRadius: "2px", transition: "width 0.5s ease" }} />
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {isEditing ? (
+                          <input type="number" defaultValue={rep.deals} onBlur={e => updateSalesRep(rep.id, "deals", e.target.value)} style={{ background: "#2A2A2A", color: "#A78BCA", border: "1px solid #A78BCA", borderRadius: "4px", padding: "4px 8px", fontSize: "13px", fontFamily: "Georgia, serif", width: "60px" }} />
+                        ) : (
+                          <div style={{ fontSize: "14px", fontWeight: "bold", color: "#A78BCA" }}>{rep.deals}</div>
+                        )}
+                        <button onClick={() => setEditingSale(isEditing ? null : rep.id)} style={{ background: "none", border: "1px solid #333", borderRadius: "4px", color: "#666", padding: "3px 8px", cursor: "pointer", fontSize: "10px", fontFamily: "Georgia, serif" }}>
+                          {isEditing ? "done" : "edit"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: "20px", padding: "16px 20px", background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: "8px", fontSize: "11px", color: "#555", letterSpacing: "1px" }}>
+              💡 Click <strong style={{ color: "#888" }}>edit</strong> on any rep to update their numbers. Rankings update automatically.
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
